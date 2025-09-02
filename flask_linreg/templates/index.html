@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Consumption Predictor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #dfecfa;
+        }
+        
+        h1 {
+            color: #193046;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .form-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #297eb6;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #eaf7ff;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fdedec;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .two-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Energy Consumption Predictor</h1>
+    
+    <div class="form-container">
+        <form id="prediction-form">
+            <div class="two-columns">
+                <div class="form-group">
+                    <label for="ambient_temp">Ambient Temperature (°C)</label>
+                    <input type="number" step="0.1" id="ambient_temp" name="ambient_temp" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ambient_humidity">Ambient Humidity (%)</label>
+                    <input type="number" step="0.1" id="ambient_humidity" name="ambient_humidity" required>
+                </div>
+            </div>
+            
+            <div class="two-columns">
+                <div class="form-group">
+                    <label for="flow_rate">Flow Rate</label>
+                    <input type="number" step="0.001" id="flow_rate" name="flow_rate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pressure">Pressure (Pa)</label>
+                    <input type="number" step="1000" id="pressure" name="pressure" required>
+                </div>
+            </div>
+            
+            <div class="two-columns">
+                <div class="form-group">
+                    <label for="pump_speed">Pump Speed (RPM)</label>
+                    <input type="number" step="1" id="pump_speed" name="pump_speed" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="setpoint_temp">Setpoint Temperature (°C)</label>
+                    <input type="number" step="0.1" id="setpoint_temp" name="setpoint_temp" required>
+                </div>
+            </div>
+            
+            <div class="two-columns">
+                <div class="form-group">
+                    <label for="vibration">Vibration</label>
+                    <input type="number" step="0.001" id="vibration" name="vibration" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="hour">Hour (0-23)</label>
+                    <input type="number" min="0" max="23" id="hour" name="hour" required>
+                </div>
+            </div>
+            
+            <div class="two-columns">
+                <div class="form-group">
+                    <label for="day">Day (1-7)</label>
+                    <select id="day" name="day" required>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="7">Sunday</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="is_weekend">Is Weekend?</label>
+                    <select id="is_weekend" name="is_weekend" required>
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button type="submit">Predict Energy Consumption</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <p>Calculating prediction...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result">
+            <h2>Prediction Result</h2>
+            <p>The predicted energy consumption is: <strong id="prediction-value"></strong></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('prediction-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Show loading, hide previous results and errors
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            
+            // Collect form data
+            const formData = {
+                ambient_temp: parseFloat(document.getElementById('ambient_temp').value),
+                ambient_humidity: parseFloat(document.getElementById('ambient_humidity').value),
+                flow_rate: parseFloat(document.getElementById('flow_rate').value),
+                pressure: parseFloat(document.getElementById('pressure').value),
+                pump_speed: parseFloat(document.getElementById('pump_speed').value),
+                setpoint_temp: parseFloat(document.getElementById('setpoint_temp').value),
+                vibration: parseFloat(document.getElementById('vibration').value),
+                hour: parseInt(document.getElementById('hour').value),
+                day: parseInt(document.getElementById('day').value),
+                is_weekend: parseInt(document.getElementById('is_weekend').value)
+            };
+
+            formData['deltaT'] = formData['setpoint_temp'] - formData['ambient_temp'];
+            formData['flow_deltaT'] = formData['flow_rate'] * formData['deltaT'];
+            formData['hour_sin'] = Math.sin(2 * Math.PI * formData['hour'] / 24);
+            formData['hour_cos'] = Math.cos(2 * Math.PI * formData['hour'] / 24);
+            
+            try {
+                // Send prediction request
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                
+                if (response.ok) {
+                    // Show result
+                    document.getElementById('prediction-value').textContent = 
+                        data.predicted_energy_consumption.toFixed(2);
+                    document.getElementById('result').style.display = 'block';
+                } else {
+                    // Show error
+                    document.getElementById('error').textContent = data.error || 'An error occurred';
+                    document.getElementById('error').style.display = 'block';
+                }
+            } catch (error) {
+                // Hide loading and show error
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Network error: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
